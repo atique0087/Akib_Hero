@@ -236,11 +236,11 @@ iframe.preview{width:100%;min-height:260px;border:3px solid var(--line);border-r
     <p class="status" id="l-status"></p>
   </section>
 
-  <!-- SPEAK & PRACTICE: Speech recognition, no voice narration -->
+  <!-- SPEAK & PRACTICE: US English spoken instructions; child speech is never spoken back -->
   <section class="panel hidden" id="practice">
     <span class="pow">SAY IT!</span>
     <h2>Speak & Practice 🎤</h2>
-    <div class="say"><span class="face"></span><div class="b"><span id="pr-say">Look at the picture, tap the microphone, and say the word clearly!</span></div></div>
+    <div class="say"><span class="face"></span><div class="b"><span id="pr-say">Look at the picture, tap the microphone, and say the word clearly!</span><button type="button" id="pr-instructions" aria-label="Hear instructions" title="Hear instructions">🔊 Instructions</button></div></div>
     <div class="row"><button id="pr-level-words" class="yellow" aria-pressed="true">🐣 Easy words</button><button id="pr-level-phrases" aria-pressed="false">🚀 Short phrases</button></div>
     <div class="practice-prompt" aria-live="polite"><div id="pr-emoji" class="practice-picture">🐱</div><div id="pr-target" class="practice-target">cat</div></div>
     <div class="row" style="justify-content:center"><button class="big red" id="pr-listen">🎤 Tap to speak</button><button class="big" id="pr-next">Next ➡️</button></div>
@@ -346,10 +346,31 @@ ${mood==='sad'?'<path d="M27 27 q5 -3 10 0" stroke="#1b1b2f" stroke-width="2" fi
 </svg>`;
 $('hero-big').innerHTML=ZAP(); document.querySelectorAll('.face').forEach(e=>e.innerHTML=ZAP());
 
-// Spoken narration removed; sound effects are retained.
+// US English voice for instructions ONLY. Never vocalize recognized speech, typed code, answers, or feedback.
 let muted=false;
+let instructionVoice=null;
+function selectInstructionVoice(){
+  if(!('speechSynthesis' in window))return;
+  const voices=window.speechSynthesis.getVoices();
+  const us=voices.filter(v=>/^en[-_]US$/i.test(v.lang));
+  instructionVoice=us.find(v=>/Samantha|Jenny|Aria|Google US English|Allison|Ava|Joanna/i.test(v.name))||us.find(v=>v.localService)||us[0]||null;
+}
+if('speechSynthesis' in window){selectInstructionVoice();window.speechSynthesis.addEventListener?.('voiceschanged',selectInstructionVoice)}
+function instruct(text){
+  if(!text||muted||!('speechSynthesis' in window))return;
+  try{
+    speechSynthesis.cancel();
+    selectInstructionVoice();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='en-US';u.rate=0.88;u.pitch=1.03;
+    if(instructionVoice)u.voice=instructionVoice;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+// Intentionally silent: existing game actions must not speak values or children's submissions.
 function say(text,rate){}
-function tell(id,text){ const el=$(id); el.textContent=text; if(el.classList.contains('oops')) sfx.boing(); else if(el.classList.contains('good')&&!/won|star|right|did it|complete|great|made/i.test(text)) sfx.ding(); say(text) }
+const INSTRUCTION_IDS=new Set(['z-say','c-say','l-say','s-say','pt-say','py-say','w-say','ai-say']);
+function tell(id,text){ const el=$(id); el.textContent=text; if(el.classList.contains('oops')) sfx.boing(); else if(el.classList.contains('good')&&!/won|star|right|did it|complete|great|made/i.test(text)) sfx.ding(); if(INSTRUCTION_IDS.has(id))instruct(text) }
 const cheer=()=>pick(['Whoa, super job!','You did it, hero!','Amazing! High five!','Fantastic!','Hero power activated!','Wow wow wow!','That was awesome!','Mission complete!']);
 const nudge=()=>pick(['Almost! Try again, hero.','Not that one. You can do it!','Hmm, look again!','Heroes never give up!']);
 
@@ -435,7 +456,7 @@ $('tabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!
   document.querySelectorAll('#tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
   for(const id of Object.keys(INTRO)) $(id).classList.toggle('hidden',t!==id);
   track.tab(t); let spoke=false; if(t==='zap') placeHero(); if(t==='count'&&!cStarted){ newCount(); spoke=true } if(t==='shapes'&&!sStarted){ newShape(); spoke=true }  if(t==='ai'&&!aiStarted){ newAI(); spoke=true }
-  if(!spoke) say($(INTRO[t]).textContent) });
+  if(!spoke){ if(t==='practice') instruct($('pr-say').textContent); else if(INSTRUCTION_IDS.has(INTRO[t])) instruct($(INTRO[t]).textContent) } });
 
 // ---------- ZAP MOVES ----------
 const COLS=4,ROWS=3;
@@ -491,7 +512,7 @@ $('l-game').onclick=()=>{ const target=pick(Object.keys(LET)); const opts=shuffl
   [...$('l-choices').children].forEach(b=>b.onclick=()=>{ track.run(); if(b.textContent===target){ b.classList.add('right'); $('l-status').className='status good'; tell('l-status',cheer()); showLetter(target); award('letters'); setTimeout(()=>$('l-game').click(),1500) } else { b.classList.add('wrong'); $('l-status').className='status oops'; tell('l-status',nudge()) } }) };
 
 
-// ---------- SPEAK & PRACTICE: child speaks; no generated voice ----------
+// ---------- SPEAK & PRACTICE: instruction-only US English voice; no echo of child speech ----------
 const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
 const PRACTICE_WORDS = [
   ['cat','🐱'],['dog','🐶'],['sun','☀️'],['ball','⚽'],['fish','🐟'],['apple','🍎'],
@@ -507,6 +528,7 @@ let prMode='words',prIndex=-1,prActive=false,prRecognition=null,prAttempt=0;
 function prNormalize(v){return v.toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim()}
 function prPrompt(){return (prMode==='words'?PRACTICE_WORDS:PRACTICE_PHRASES)[prIndex][0]}
 function prNext(){
+  if('speechSynthesis' in window)try{speechSynthesis.cancel()}catch(e){}
   if(prRecognition){try{prRecognition.abort()}catch(e){}}
   prActive=false; $('pr-listen').disabled=false; $('pr-listen').textContent='🎤 Tap to speak';
   const bank=prMode==='words'?PRACTICE_WORDS:PRACTICE_PHRASES;
@@ -514,11 +536,13 @@ function prNext(){
   prIndex=next;$('pr-target').textContent=bank[next][0];$('pr-emoji').textContent=bank[next][1];
   $('pr-status').className='status';$('pr-status').textContent='Tap the microphone, then say it!';$('pr-heard').textContent='';prAttempt=0;
 }
-function prModeChange(mode){prMode=mode; $('pr-level-words').setAttribute('aria-pressed',mode==='words');$('pr-level-phrases').setAttribute('aria-pressed',mode==='phrases');$('pr-level-words').classList.toggle('yellow',mode==='words');$('pr-level-phrases').classList.toggle('yellow',mode==='phrases');prNext()}
+function prModeChange(mode){instruct(mode==='words'?'Look at the picture and say one word. Tap the microphone to begin.':'Look at the picture and say the full short sentence. Tap the microphone to begin.');prMode=mode; $('pr-level-words').setAttribute('aria-pressed',mode==='words');$('pr-level-phrases').setAttribute('aria-pressed',mode==='phrases');$('pr-level-words').classList.toggle('yellow',mode==='words');$('pr-level-phrases').classList.toggle('yellow',mode==='phrases');prNext()}
 $('pr-level-words').onclick=()=>prModeChange('words');
 $('pr-level-phrases').onclick=()=>prModeChange('phrases');
 $('pr-next').onclick=prNext;
+$('pr-instructions').onclick=()=>instruct($('pr-say').textContent);
 $('pr-listen').onclick=()=>{
+  if('speechSynthesis' in window)try{speechSynthesis.cancel()}catch(e){}
   if(prActive){try{prRecognition.stop()}catch(e){} return}
   if(!SpeechRecognitionAPI){$('pr-status').textContent='Speech recognition is not available in this browser. Try Google Chrome with microphone access.';return}
   const target=prPrompt();
