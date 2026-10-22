@@ -1,0 +1,456 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Akib's Hero Academy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@700;800;900&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js"></script>
+<style>
+/* Layout: a comic book. One big panel per activity with a "POW" title, giant tap targets, almost no reading needed: Captain Zap says every instruction out loud. */
+:root{
+  --bg:#fff7d6; --panel:#ffffff; --ink:#1b1b2f; --muted:#4a4a63; --line:#1b1b2f;
+  --red:#ff3b3b; --blue:#2f6fe4; --yellow:#ffd500; --green:#2fc26a; --purple:#9b5cf6; --orange:#ff8c1a; --pink:#ff5fa2; --sky:#cfe6ff;
+  --display:'Bangers','Impact',sans-serif; --body:'Nunito','Segoe UI',sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:radial-gradient(circle,#ffe08a 1.6px,transparent 1.8px) 0 0/18px 18px,var(--bg);color:var(--ink);font-family:var(--body);font-size:20px;font-weight:800;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 32px}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1,h2{font-family:var(--display);margin:0;letter-spacing:.03em;text-wrap:balance;line-height:1}
+h1{font-size:2.6rem;color:var(--red);-webkit-text-stroke:1.5px var(--ink);text-shadow:4px 4px 0 var(--yellow)}
+h2{font-size:2rem;color:var(--blue);-webkit-text-stroke:1px var(--ink)}
+p{margin:0}
+button{font-family:var(--body);font-weight:900;font-size:1.2rem;border:3px solid var(--line);border-radius:18px;padding:12px 18px;cursor:pointer;color:var(--ink);background:var(--panel);box-shadow:4px 4px 0 var(--line);transition:transform .08s;touch-action:manipulation;user-select:none}
+button:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--line)}
+button:focus-visible{outline:4px solid var(--blue);outline-offset:2px}
+button[disabled]{opacity:.5}
+.big{font-size:1.5rem;padding:16px 26px}
+.red{background:var(--red);color:#fff} .blue{background:var(--blue);color:#fff} .yellow{background:var(--yellow)} .green{background:var(--green);color:#fff}
+.hidden{display:none !important}
+
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.top svg{width:96px;height:96px;flex:none}
+.stars{margin-left:auto;font-family:var(--display);font-size:1.6rem;background:var(--yellow);padding:6px 16px;border-radius:999px;border:3px solid var(--line);font-variant-numeric:tabular-nums;box-shadow:3px 3px 0 var(--line)}
+.tabs{display:flex;gap:10px;flex-wrap:wrap}
+.tabs button{font-size:1.1rem;padding:10px 14px;display:flex;align-items:center;gap:6px}
+.tabs button span{font-size:1.6rem}
+.tabs button[aria-selected="true"]{background:var(--blue);color:#fff}
+
+.panel{background:var(--panel);border:4px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px;box-shadow:6px 6px 0 var(--line);position:relative}
+.pow{position:absolute;top:-16px;right:14px;font-family:var(--display);font-size:1.4rem;background:var(--yellow);border:3px solid var(--line);padding:2px 12px;border-radius:12px;transform:rotate(6deg);letter-spacing:.05em}
+.say{display:flex;align-items:center;gap:12px}
+.say svg{width:64px;height:64px;flex:none}
+.say .b{flex:1;min-width:0;background:var(--sky);border:3px solid var(--line);border-radius:20px 20px 20px 4px;padding:12px 16px;font-size:1.25rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.say .b button{padding:6px 12px;font-size:1.4rem;border-radius:12px;margin-left:auto}
+.status{font-family:var(--display);font-size:1.7rem;min-height:1.2em;letter-spacing:.03em}
+.status.good{color:var(--green)} .status.oops{color:var(--red)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* hero grid */
+.field{background:#dff3ff;border:3px solid var(--line);border-radius:18px;padding:8px;position:relative;max-width:100%;overflow:hidden}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;position:relative}
+.cell{aspect-ratio:1;border-radius:12px;background:#fff;border:2px dashed #9cc7ee;display:grid;place-items:center;font-size:2.4rem}
+.cell.rock{background:#8d8d9b;border-style:solid;border-color:#5b5b6b}
+.cell.goal{background:var(--yellow);border-style:solid;border-color:var(--line)}
+.field .hero{position:absolute;aspect-ratio:1;transition:left .35s,top .35s;pointer-events:none;display:grid;place-items:center}
+.field .hero svg{width:90%;height:90%}
+.field .hero.bonk{animation:bonk .35s}
+@keyframes bonk{50%{transform:rotate(-15deg) scale(1.1)}}
+.pad{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.pad button{font-size:2.2rem;padding:8px 22px;background:var(--sky)}
+.prog{display:flex;flex-wrap:wrap;gap:8px;min-height:64px;padding:10px;border:3px dashed var(--line);border-radius:18px;align-items:center;justify-content:center}
+.prog span{font-size:2rem;background:var(--yellow);border:3px solid var(--line);border-radius:12px;padding:2px 12px}
+.prog span.run{background:var(--green);color:#fff}
+
+/* counting */
+.tower{display:flex;align-items:flex-end;justify-content:center;gap:6px;min-height:260px;background:#e9f7ff;border:3px solid var(--line);border-radius:18px;padding:12px;flex-wrap:wrap}
+.stack{display:flex;flex-direction:column-reverse;gap:3px;align-items:center}
+.blk{width:48px;height:40px;border:3px solid var(--line);border-radius:8px;animation:pop .25s}
+@keyframes pop{from{transform:scale(.4)}to{transform:scale(1)}}
+.bignum{font-family:var(--display);font-size:5rem;line-height:1;text-align:center;color:var(--blue);-webkit-text-stroke:2px var(--line)}
+.numpad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.numpad button{font-family:var(--display);font-size:2rem;padding:10px 0}
+.numpad button.right{background:var(--green);color:#fff} .numpad button.wrong{background:var(--red);color:#fff}
+
+/* letters & shapes */
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.choices button{font-size:3rem;padding:18px 8px;min-height:120px;display:grid;place-items:center}
+.choices button.right{background:var(--green)} .choices button.wrong{background:var(--red)}
+.choices button svg{width:84px;height:84px}
+.alpha{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
+.alpha button{font-family:var(--display);font-size:2.2rem;padding:8px 0;background:var(--yellow)}
+.letterbig{display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;font-family:var(--display);font-size:5rem;color:var(--red);-webkit-text-stroke:2px var(--line)}
+.letterbig .w{font-size:2rem;color:var(--ink);-webkit-text-stroke:0;font-family:var(--body)}
+.letterbig .e{font-size:5rem}
+
+/* pattern */
+.pattern{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:3.5rem;background:#f3f0ff;border:3px solid var(--line);border-radius:18px;padding:14px}
+.pattern .q{width:70px;height:70px;border:3px dashed var(--line);border-radius:14px;display:grid;place-items:center;font-size:2.5rem;color:var(--muted)}
+
+/* paint */
+.canvasgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;background:var(--line);border:3px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none;max-width:100%}
+.canvasgrid div{aspect-ratio:1;background:#fff}
+.palette{display:flex;gap:8px;flex-wrap:wrap}
+.palette button{width:52px;height:52px;padding:0;border-radius:50%}
+.palette button[aria-pressed="true"]{outline:5px solid var(--line);outline-offset:2px}
+
+/* code builders */
+.codebox{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:1.35rem;background:#1b1b2f;color:#fff;border-radius:16px;padding:14px 16px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:3em;border:3px solid var(--line)}
+.codebox .k{color:#ff8c1a} .codebox .s{color:#ffd500} .codebox .n{color:#7fd6ff} .codebox .blank{background:#ffd500;color:#1b1b2f;border-radius:6px;padding:0 8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips button{font-size:1.6rem;padding:8px 14px;background:var(--yellow)}
+.chips button.num{font-family:var(--display);font-size:1.8rem;background:#7fd6ff}
+.out{background:#e9f7ff;border:3px solid var(--line);border-radius:16px;padding:12px;font-size:2.2rem;min-height:3em;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.3}
+.turtle{background:#fff;border:3px solid var(--line);border-radius:16px;overflow:hidden;max-width:100%}
+.turtle canvas{max-width:100%}
+.tbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.tbtns button{font-size:1.3rem}
+.bench{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.bench{grid-template-columns:1fr}}
+.bench>div{min-width:0;display:flex;flex-direction:column;gap:8px}
+iframe.preview{width:100%;min-height:260px;border:3px solid var(--line);border-radius:16px;background:#fff}
+.pickrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pickrow .lbl{font-family:var(--display);font-size:1.3rem;min-width:90px}
+.pickrow button{padding:8px 12px;font-size:1.3rem}
+.pickrow button[aria-pressed="true"]{background:var(--blue);color:#fff}
+.pickrow button.sw{width:44px;height:44px;padding:0;border-radius:50%}
+.aicards{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.aicard{background:#f3f0ff;border:3px solid var(--line);border-radius:16px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.aicard svg{width:70px;height:70px}
+.aicard .lab{display:flex;gap:4px}
+.aicard .lab button{padding:4px 8px;font-size:1.4rem;border-radius:10px}
+.aicard .lab button[aria-pressed="true"]{background:var(--yellow);outline:3px solid var(--line)}
+.aicard.yes{background:#d8f8e3} .aicard.no{background:#ffe0e0}
+.aicard .g{font-family:var(--display);font-size:1.3rem}
+.aicard .g.ok{color:var(--green)} .aicard .g.bad{color:var(--red)}
+.grown{color:var(--ink);font-size:1rem;font-weight:700;background:var(--panel);border:3px solid var(--line);border-radius:18px;padding:14px 16px}
+@media (prefers-reduced-motion: reduce){ .field .hero{transition:none} .blk{animation:none} }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span id="hero-big"></span>
+    <div><h1>Akib's Hero Academy</h1><p>Train with Captain Zap: count, spell, think, and code!</p></div>
+    <div class="stars" id="starcount">★ 0</div>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-t="zap" aria-selected="true"><span>⚡</span>Zap Moves</button>
+    <button role="tab" data-t="count"><span>🧱</span>Count</button>
+    <button role="tab" data-t="letters"><span>🔤</span>Letters</button>
+    <button role="tab" data-t="shapes"><span>🔷</span>Shapes</button>
+    <button role="tab" data-t="pattern"><span>🧩</span>Patterns</button>
+    <button role="tab" data-t="paint"><span>🎨</span>Paint</button>
+    <button role="tab" data-t="py"><span>🐍</span>Python</button>
+    <button role="tab" data-t="web"><span>🌐</span>Web page</button>
+    <button role="tab" data-t="ai"><span>🧠</span>AI</button>
+  </nav>
+
+  <!-- ZAP MOVES: first coding -->
+  <section class="panel" id="zap">
+    <span class="pow">POW!</span>
+    <h2>Zap Moves</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="z-say">Tap the arrows to send me to the star. Then press GO!</span><button class="speak" data-say="z-say">🔊</button></div></div>
+    <div class="field"><div class="grid" id="grid"></div><div class="hero" id="hero"></div></div>
+    <div class="pad"><button data-k="L">⬅️</button><button data-k="U">⬆️</button><button data-k="D">⬇️</button><button data-k="R">➡️</button></div>
+    <div class="prog" id="prog"></div>
+    <div class="row"><button class="big green" id="go">GO! ⚡</button><button class="big" id="clear">Clear</button><button class="big yellow hidden" id="next">Next ➡️</button></div>
+    <p class="status" id="z-status"></p>
+  </section>
+
+  <!-- COUNT -->
+  <section class="panel hidden" id="count">
+    <span class="pow">1 2 3!</span>
+    <h2>Block Tower</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="c-say"></span><button class="speak" data-say="c-say">🔊</button></div></div>
+    <div class="bignum" id="c-target"></div>
+    <div class="tower" id="tower"></div>
+    <div class="row" id="c-build"><button class="big blue" id="addblk">➕ Add a block</button><button class="big" id="rmblk">➖ Take one</button><button class="big green" id="c-check">Done!</button></div>
+    <div class="numpad hidden" id="numpad"></div>
+    <p class="status" id="c-status"></p>
+    <div class="row"><button class="big yellow hidden" id="c-next">Next ➡️</button></div>
+  </section>
+
+  <!-- LETTERS -->
+  <section class="panel hidden" id="letters">
+    <span class="pow">ABC!</span>
+    <h2>Letter Power</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="l-say">Tap a letter and I will say it. Then play Find the Letter!</span><button class="speak" data-say="l-say">🔊</button></div></div>
+    <div class="letterbig" id="letterbig"><span>A</span><span class="e">🍎</span><span class="w">apple</span></div>
+    <div class="alpha" id="alpha"></div>
+    <div class="row"><button class="big red" id="l-game">🎯 Find the letter!</button></div>
+    <div class="choices hidden" id="l-choices"></div>
+    <p class="status" id="l-status"></p>
+  </section>
+
+  <!-- SHAPES & COLORS -->
+  <section class="panel hidden" id="shapes">
+    <span class="pow">ZOOM!</span>
+    <h2>Shape Finder</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="s-say"></span><button class="speak" data-say="s-say">🔊</button></div></div>
+    <div class="choices" id="s-choices"></div>
+    <p class="status" id="s-status"></p>
+  </section>
+
+  <!-- PATTERNS -->
+  <section class="panel hidden" id="pattern">
+    <span class="pow">THINK!</span>
+    <h2>What Comes Next?</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="p-say">Look at the pattern. What comes next? This is how computers (and I) find patterns!</span><button class="speak" data-say="p-say">🔊</button></div></div>
+    <div class="pattern" id="pat"></div>
+    <div class="choices" id="p-choices"></div>
+    <p class="status" id="p-status"></p>
+  </section>
+
+  <!-- PAINT -->
+  <section class="panel hidden" id="paint">
+    <span class="pow">SPLAT!</span>
+    <h2>Pixel Paint</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="pt-say">Pick a color and tap the squares. Every picture on a screen is made of tiny squares called pixels!</span><button class="speak" data-say="pt-say">🔊</button></div></div>
+    <div class="palette" id="palette"></div>
+    <div class="canvasgrid" id="pix"></div>
+    <div class="row"><button class="big" id="pix-clear">🧽 Clear</button><button class="big yellow" id="pix-hero">⚡ Draw Zap for me</button></div>
+  </section>
+
+  <!-- PYTHON (tap to build real Python) -->
+  <section class="panel hidden" id="py">
+    <span class="pow">CODE!</span>
+    <h2>Real Python</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="py-say">This is real Python, the language grown-up coders use! Tap the yellow blanks to fill them in, then press RUN.</span><button class="speak" data-say="py-say">🔊</button></div></div>
+    <div class="row" id="py-modes"><button class="big yellow" data-m="say" aria-pressed="true">💬 Say it</button><button class="big" data-m="loop" aria-pressed="false">🔁 Repeat it</button><button class="big" data-m="turtle" aria-pressed="false">🐢 Draw it</button></div>
+    <div class="codebox" id="py-code"></div>
+    <div class="chips" id="py-chips"></div>
+    <div class="tbtns hidden" id="py-tbtns"><button class="blue" data-c="t.forward(80)">Walk ➡️</button><button class="blue" data-c="t.right(90)">Turn ↪️</button><button class="blue" data-c="t.left(90)">Turn ↩️</button><button data-c='t.color("red")' style="background:#ff3b3b;color:#fff">Red pen</button><button data-c='t.color("blue")' style="background:#2f6fe4;color:#fff">Blue pen</button><button data-c='t.color("green")' style="background:#2fc26a;color:#fff">Green pen</button><button data-c="UNDO">↩ Undo</button></div>
+    <div class="row"><button class="big green" id="py-run">▶ RUN</button><button class="big" id="py-clear">Clear</button></div>
+    <div class="out" id="py-out"></div>
+    <div class="turtle" id="py-turtle"></div>
+    <p class="status" id="py-status"></p>
+  </section>
+
+  <!-- WEB PAGE (tap to build real HTML) -->
+  <section class="panel hidden" id="web">
+    <span class="pow">WWW!</span>
+    <h2>Make a Web Page</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="w-say">Websites are written in HTML. Pick your words, color and picture, and watch your very own web page appear!</span><button class="speak" data-say="w-say">🔊</button></div></div>
+    <div class="pickrow"><span class="lbl">Title</span><span id="w-titles"></span></div>
+    <div class="pickrow"><span class="lbl">Color</span><span id="w-colors"></span></div>
+    <div class="pickrow"><span class="lbl">Picture</span><span id="w-pics"></span></div>
+    <div class="pickrow"><span class="lbl">Button</span><span id="w-btns"></span></div>
+    <div class="bench">
+      <div><span class="lbl" style="font-family:var(--display);font-size:1.3rem">The HTML code</span><div class="codebox" id="w-code"></div></div>
+      <div><span class="lbl" style="font-family:var(--display);font-size:1.3rem">Your web page</span><iframe class="preview" id="w-view" sandbox="allow-scripts" title="Your web page"></iframe></div>
+    </div>
+    <p class="status good" id="w-status"></p>
+  </section>
+
+  <!-- AI (teach Zap) -->
+  <section class="panel hidden" id="ai">
+    <span class="pow">SMART!</span>
+    <h2>Teach Zap</h2>
+    <div class="say"><span class="face"></span><div class="b"><span id="ai-say"></span><button class="speak" data-say="ai-say">🔊</button></div></div>
+    <div class="aicards" id="ai-train"></div>
+    <div class="row"><button class="big green" id="ai-teach">🧠 Teach Zap!</button><button class="big" id="ai-new">New game</button></div>
+    <p class="status" id="ai-status"></p>
+    <div id="ai-test-wrap" class="hidden"><p style="font-size:1.3rem">Now Zap guesses NEW toys all by himself:</p><div class="aicards" id="ai-test"></div><p class="status" id="ai-result"></p></div>
+  </section>
+
+  <p class="grown"><b>For Pukus Pakus:</b> Built for a 5-year-old: giant buttons, almost no reading, and Captain Zap reads every instruction aloud (tap 🔊; it uses the device's own voice). Zap Moves is first coding (sequences, left/right/up/down). Block Tower is counting to 10 and number recognition. Letter Power is letter names and sounds with a find-the-letter game. Shape Finder covers shapes and colors. Patterns is early logic, the seed of how AI finds patterns. Pixel Paint shows that screens are made of tiny squares. Real Python runs genuine Python in the browser from tap-to-fill blanks (print, loops, turtle drawing). Make a Web Page builds real HTML from his choices and shows the code beside the page. Teach Zap is machine learning in miniature: he labels toys, Zap finds the pattern and guesses new ones. Stars are saved on this device, and each visit is recorded for your weekly report.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+function store(k,v){ try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} }
+function load(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v }catch(e){ return d } }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+// ---------- Captain Zap (original hero: yellow lightning mask, purple cape) ----------
+const ZAP=(mood='happy')=>`<svg viewBox="0 0 64 64" aria-hidden="true">
+<path d="M18 30 L10 58 L32 48 L54 58 L46 30 Z" fill="#9b5cf6" stroke="#1b1b2f" stroke-width="2"/>
+<rect x="20" y="30" width="24" height="22" rx="8" fill="#2f6fe4" stroke="#1b1b2f" stroke-width="2"/>
+<path d="M34 32 L28 42 L33 42 L30 50 L38 38 L33 38 Z" fill="#ffd500" stroke="#1b1b2f" stroke-width="1.5"/>
+<circle cx="32" cy="18" r="13" fill="#ffd9b3" stroke="#1b1b2f" stroke-width="2"/>
+<path d="M19 16 Q32 2 45 16 L45 22 Q32 14 19 22 Z" fill="#ffd500" stroke="#1b1b2f" stroke-width="2"/>
+<circle cx="27" cy="19" r="2.2" fill="#1b1b2f"/><circle cx="37" cy="19" r="2.2" fill="#1b1b2f"/>
+${mood==='sad'?'<path d="M27 26 q5 -3 10 0" stroke="#1b1b2f" stroke-width="2" fill="none"/>':'<path d="M26 24 q6 6 12 0" stroke="#1b1b2f" stroke-width="2" fill="none"/>'}
+<rect x="12" y="32" width="8" height="16" rx="4" fill="#ffd9b3" stroke="#1b1b2f" stroke-width="2"/><rect x="44" y="32" width="8" height="16" rx="4" fill="#ffd9b3" stroke="#1b1b2f" stroke-width="2"/>
+<rect x="22" y="52" width="8" height="10" rx="3" fill="#ff3b3b" stroke="#1b1b2f" stroke-width="2"/><rect x="34" y="52" width="8" height="10" rx="3" fill="#ff3b3b" stroke="#1b1b2f" stroke-width="2"/>
+</svg>`;
+$('hero-big').innerHTML=ZAP(); document.querySelectorAll('.face').forEach(e=>e.innerHTML=ZAP());
+
+// ---------- voice ----------
+let voice=null;
+function pickVoice(){ const vs=speechSynthesis.getVoices(); voice=vs.find(v=>/en.*(child|kid)/i.test(v.name))||vs.find(v=>/^en/.test(v.lang)&&/Google|Samantha|Karen|Daniel/.test(v.name))||vs.find(v=>/^en/.test(v.lang))||null }
+if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice }
+function say(text){ if(!('speechSynthesis' in window)) return; try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=.9; u.pitch=1.15; if(voice) u.voice=voice; speechSynthesis.speak(u) }catch(e){} }
+document.querySelectorAll('.speak').forEach(b=>b.onclick=()=>say($(b.dataset.say).textContent));
+function tell(id,text){ $(id).textContent=text; say(text) }
+const cheer=()=>pick(['Super!','You did it!','Amazing!','Zap-tastic!','Hero power!','Wow!']);
+const nudge=()=>pick(['Almost! Try again.','Not that one. You can do it!','Hmm, look again!']);
+
+// ---------- stars + tracking ----------
+let stars=load('zap-stars',{});
+function award(k){ if(stars[k]) return; stars[k]=true; store('zap-stars',stars); paintStars(); track.star(Object.keys(stars).length) }
+function paintStars(){ $('starcount').textContent='★ '+Object.keys(stars).length }
+const track=(()=>{
+  const s={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),player:'Akib',app:'hero-academy',started:Date.now(),ended:Date.now(),seconds:0,tabs:{},runs:0,stars:0,device:/Mobi|Tablet|iPad/i.test(navigator.userAgent)?'tablet/phone':'computer'};
+  let cur='zap',since=Date.now(),db=null,dirty=true,saving=false;
+  function tick(){ const now=Date.now(); if(document.visibilityState==='visible'){ const d=(now-since)/1000; s.tabs[cur]=(s.tabs[cur]||0)+d; s.seconds+=d; s.ended=now; dirty=true } since=now }
+  async function save(){ if(!db||!dirty||saving) return; saving=true; try{ await db.doc('sessions/'+s.id).set({...s,seconds:Math.round(s.seconds),tabs:Object.fromEntries(Object.entries(s.tabs).map(([k,v])=>[k,Math.round(v)]))}); dirty=false }catch(e){} saving=false }
+  (async()=>{ try{ db=window.claude?.use?await window.claude.use('db'):null; const u=window.claude?.use?await window.claude.use('user'):null; if(u){ try{ s.viewer=await u.id() }catch(e){} } }catch(e){ db=null } save() })();
+  setInterval(()=>{ tick(); save() },30000); document.addEventListener('visibilitychange',()=>{ tick(); save() }); window.addEventListener('pagehide',()=>{ tick(); save() });
+  return { tab(t){ tick(); cur=t }, run(){ s.runs++; dirty=true }, star(n){ s.stars=n; dirty=true } };
+})();
+paintStars();
+
+// ---------- tabs ----------
+const INTRO={zap:'z-say',count:'c-say',letters:'l-say',shapes:'s-say',pattern:'p-say',paint:'pt-say',py:'py-say',web:'w-say',ai:'ai-say'};
+$('tabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const t=b.dataset.t;
+  document.querySelectorAll('#tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  for(const id of Object.keys(INTRO)) $(id).classList.toggle('hidden',t!==id);
+  track.tab(t); if(t==='zap') placeHero(); if(t==='count'&&!cStarted) newCount(); if(t==='shapes'&&!sStarted) newShape(); if(t==='pattern'&&!pStarted) newPattern(); if(t==='ai'&&!aiStarted) newAI();
+  say($(INTRO[t]).textContent) });
+
+// ---------- ZAP MOVES ----------
+const COLS=4,ROWS=3;
+const LEVELS=[
+ {start:[0,1],goal:[2,1],rocks:[]},
+ {start:[0,0],goal:[3,0],rocks:[]},
+ {start:[0,2],goal:[2,0],rocks:[]},
+ {start:[0,1],goal:[3,1],rocks:[[2,1]]},
+ {start:[3,2],goal:[0,0],rocks:[[1,2],[2,0]]},
+ {start:[0,0],goal:[3,2],rocks:[[1,0],[2,2],[2,1]]},
+];
+let lv=load('zap-level',0), L=null, prog=[], pos=[0,0], running=false;
+const ARROW={L:'⬅️',U:'⬆️',D:'⬇️',R:'➡️'}, WORD={L:'left',U:'up',D:'down',R:'right'};
+function loadLevel(){ L=LEVELS[lv]; prog=[]; pos=[...L.start]; $('next').classList.add('hidden'); $('z-status').textContent='';
+  const g=$('grid'); g.innerHTML=''; for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){ const d=document.createElement('div'); d.className='cell'; if(L.rocks.some(r=>r[0]===x&&r[1]===y)){ d.classList.add('rock'); d.textContent='🪨' } else if(L.goal[0]===x&&L.goal[1]===y){ d.classList.add('goal'); d.textContent='⭐' } g.append(d) }
+  drawProg(); placeHero() }
+function placeHero(){ if(!L) return; const h=$('hero'); h.innerHTML=ZAP(); const g=$('grid'); const cw=(g.clientWidth-6*(COLS-1))/COLS; h.style.width=cw+'px'; h.style.left=(8+pos[0]*(cw+6))+'px'; h.style.top=(8+pos[1]*(cw+6))+'px' }
+window.addEventListener('resize',placeHero);
+function drawProg(){ $('prog').innerHTML=prog.map(k=>`<span>${ARROW[k]}</span>`).join('')||'<span style="background:none;border:0;font-size:1.2rem;color:var(--muted)">Your moves go here</span>' }
+document.querySelector('.pad').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||running||prog.length>=8) return; prog.push(b.dataset.k); say(WORD[b.dataset.k]); drawProg() });
+$('clear').onclick=()=>{ if(running) return; prog=[]; pos=[...L.start]; placeHero(); drawProg(); $('z-status').textContent='' };
+$('go').onclick=async()=>{ if(running||!prog.length) return; running=true; track.run(); pos=[...L.start]; placeHero(); $('z-status').textContent=''; const chips=[...$('prog').children]; let bonk=false;
+  for(let i=0;i<prog.length;i++){ chips.forEach((c,j)=>c.classList.toggle('run',j===i)); await wait(450); const d={L:[-1,0],R:[1,0],U:[0,-1],D:[0,1]}[prog[i]]; const nx=pos[0]+d[0],ny=pos[1]+d[1];
+    if(nx<0||ny<0||nx>=COLS||ny>=ROWS||L.rocks.some(r=>r[0]===nx&&r[1]===ny)){ const h=$('hero'); h.classList.add('bonk'); h.innerHTML=ZAP('sad'); await wait(350); h.classList.remove('bonk'); bonk=true; break }
+    pos=[nx,ny]; placeHero() }
+  chips.forEach(c=>c.classList.remove('run'));
+  const win=!bonk&&pos[0]===L.goal[0]&&pos[1]===L.goal[1]; const st=$('z-status'); st.className='status '+(win?'good':'oops');
+  if(win){ tell('z-status',cheer()+' You got the star!'); award('zap'+lv); $('next').classList.remove('hidden') } else tell('z-status', bonk?'Bonk! Try a different way.':'Not there yet. Add more moves!');
+  running=false };
+$('next').onclick=()=>{ lv=(lv+1)%LEVELS.length; store('zap-level',lv); loadLevel(); say('Level '+(lv+1)+'. Send me to the star!') };
+loadLevel(); requestAnimationFrame(placeHero);
+
+// ---------- COUNT ----------
+const BLOCKCOL=['#ff3b3b','#ff8c1a','#ffd500','#2fc26a','#2f6fe4','#9b5cf6','#ff5fa2','#2fc26a','#ff8c1a','#2f6fe4'];
+let cStarted=false,cTarget=5,cMode='build',blocks=0;
+function newCount(){ cStarted=true; cMode=Math.random()<0.5?'build':'read'; blocks=0; $('c-next').classList.add('hidden'); $('c-status').textContent='';
+  if(cMode==='build'){ cTarget=2+Math.floor(Math.random()*9); $('c-target').textContent=cTarget; $('c-build').classList.remove('hidden'); $('numpad').classList.add('hidden'); tell('c-say',`Build a tower with ${cTarget} blocks!`) }
+  else { cTarget=1+Math.floor(Math.random()*10); blocks=cTarget; $('c-target').textContent='?'; $('c-build').classList.add('hidden'); $('numpad').classList.remove('hidden'); $('numpad').innerHTML=''; for(let n=1;n<=10;n++){ const b=document.createElement('button'); b.textContent=n; b.onclick=()=>{ if(n===cTarget){ b.classList.add('right'); $('c-target').textContent=n; $('c-status').className='status good'; tell('c-status',cheer()+` ${n} blocks!`); award('count'); $('c-next').classList.remove('hidden') } else { b.classList.add('wrong'); $('c-status').className='status oops'; tell('c-status',nudge()+' Count them with your finger.') } }; $('numpad').append(b) } tell('c-say','How many blocks? Count them, then tap the number!') }
+  drawTower() }
+function drawTower(){ const t=$('tower'); t.innerHTML=''; const st=document.createElement('div'); st.className='stack'; for(let i=0;i<blocks;i++){ const b=document.createElement('div'); b.className='blk'; b.style.background=BLOCKCOL[i%10]; st.append(b) } t.append(st) }
+$('addblk').onclick=()=>{ if(blocks<10){ blocks++; drawTower(); say(String(blocks)) } };
+$('rmblk').onclick=()=>{ if(blocks>0){ blocks--; drawTower(); say(blocks?String(blocks):'zero') } };
+$('c-check').onclick=()=>{ track.run(); if(blocks===cTarget){ $('c-status').className='status good'; tell('c-status',cheer()+` That is ${cTarget}!`); award('count'); $('c-next').classList.remove('hidden') } else { $('c-status').className='status oops'; tell('c-status', blocks<cTarget?`You have ${blocks}. Add more!`:`You have ${blocks}. Take some away!`) } };
+$('c-next').onclick=newCount;
+
+// ---------- LETTERS ----------
+const LET={A:['🍎','apple'],B:['🐝','bee'],C:['🐱','cat'],D:['🐶','dog'],E:['🥚','egg'],F:['🐟','fish'],G:['🍇','grapes'],H:['🏠','house'],I:['🍦','ice cream'],J:['🧃','juice'],K:['🪁','kite'],L:['🦁','lion'],M:['🌙','moon'],N:['👃','nose'],O:['🐙','octopus'],P:['🍕','pizza'],Q:['👑','queen'],R:['🌈','rainbow'],S:['☀️','sun'],T:['🐯','tiger'],U:['☂️','umbrella'],V:['🚐','van'],W:['🍉','watermelon'],X:['❌','x marks the spot'],Y:['🪀','yo-yo'],Z:['🦓','zebra']};
+$('alpha').innerHTML=Object.keys(LET).map(l=>`<button>${l}</button>`).join('');
+$('alpha').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; showLetter(b.textContent); say(`${b.textContent}. ${b.textContent} is for ${LET[b.textContent][1]}.`) });
+function showLetter(l){ $('letterbig').innerHTML=`<span>${l}</span><span class="e">${LET[l][0]}</span><span class="w">${LET[l][1]}</span>` }
+$('l-game').onclick=()=>{ const target=pick(Object.keys(LET)); const opts=shuffle([target,...shuffle(Object.keys(LET).filter(x=>x!==target)).slice(0,3)]); $('l-choices').classList.remove('hidden'); $('l-status').textContent='';
+  $('l-choices').innerHTML=opts.map(l=>`<button>${l}</button>`).join(''); tell('l-say',`Find the letter ${target}! ${target} is for ${LET[target][1]}.`);
+  [...$('l-choices').children].forEach(b=>b.onclick=()=>{ track.run(); if(b.textContent===target){ b.classList.add('right'); $('l-status').className='status good'; tell('l-status',cheer()); showLetter(target); award('letters'); setTimeout(()=>$('l-game').click(),1500) } else { b.classList.add('wrong'); $('l-status').className='status oops'; tell('l-status',nudge()) } }) };
+
+// ---------- SHAPES & COLORS ----------
+const SHAPES={circle:r=>`<circle cx="42" cy="42" r="34" fill="${r}" stroke="#1b1b2f" stroke-width="4"/>`,square:r=>`<rect x="10" y="10" width="64" height="64" rx="6" fill="${r}" stroke="#1b1b2f" stroke-width="4"/>`,triangle:r=>`<polygon points="42,8 78,76 6,76" fill="${r}" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round"/>`,star:r=>`<polygon points="42,6 52,32 80,32 57,49 66,76 42,60 18,76 27,49 4,32 32,32" fill="${r}" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round"/>`,heart:r=>`<path d="M42 76 L10 44 A16 16 0 0 1 42 22 A16 16 0 0 1 74 44 Z" fill="${r}" stroke="#1b1b2f" stroke-width="4" stroke-linejoin="round"/>`};
+const COLORS={red:'#ff3b3b',blue:'#2f6fe4',yellow:'#ffd500',green:'#2fc26a',purple:'#9b5cf6',orange:'#ff8c1a',pink:'#ff5fa2'};
+let sStarted=false;
+function newShape(){ sStarted=true; const shape=pick(Object.keys(SHAPES)), color=pick(Object.keys(COLORS)); const askColor=Math.random()<0.5;
+  const opts=[{shape,color}]; while(opts.length<4){ const o={shape:pick(Object.keys(SHAPES)),color:pick(Object.keys(COLORS))}; if(!opts.some(x=>x.shape===o.shape&&x.color===o.color)&&!(askColor?o.color===color:o.shape===shape)) opts.push(o) }
+  shuffle(opts); $('s-status').textContent=''; $('s-choices').innerHTML=opts.map(o=>`<button><svg viewBox="0 0 84 84">${SHAPES[o.shape](COLORS[o.color])}</svg></button>`).join('');
+  tell('s-say', askColor?`Tap the ${color} one!`:`Tap the ${shape}!`);
+  [...$('s-choices').children].forEach((b,i)=>b.onclick=()=>{ track.run(); const o=opts[i]; const ok=askColor?o.color===color:o.shape===shape; if(ok){ b.classList.add('right'); $('s-status').className='status good'; tell('s-status',cheer()+` A ${o.color} ${o.shape}!`); award('shapes'); setTimeout(newShape,1600) } else { b.classList.add('wrong'); $('s-status').className='status oops'; tell('s-status',`That is a ${o.color} ${o.shape}. ${nudge()}`) } }) }
+
+// ---------- PATTERNS ----------
+const PSETS=[['🍎','🍌'],['🔴','🔵'],['⭐','🌙'],['🐱','🐶'],['⚡','💥'],['🟩','🟨','🟦'],['🚗','🚌','🚲']];
+let pStarted=false;
+function newPattern(){ pStarted=true; const set=pick(PSETS); const kind=set.length===2&&Math.random()<0.4?'aabb':'abc'; let seq=[]; for(let i=0;i<7;i++) seq.push(kind==='aabb'?set[Math.floor(i/2)%2]:set[i%set.length]);
+  const answer=seq[6]; const shown=seq.slice(0,6); const opts=shuffle([...new Set([answer,...set,...pick(PSETS)])].slice(0,4)); if(!opts.includes(answer)) opts[0]=answer;
+  $('pat').innerHTML=shown.map(x=>`<span>${x}</span>`).join('')+'<span class="q">?</span>'; $('p-status').textContent='';
+  $('p-choices').innerHTML=opts.map(x=>`<button>${x}</button>`).join(''); say('What comes next?');
+  [...$('p-choices').children].forEach(b=>b.onclick=()=>{ track.run(); if(b.textContent===answer){ b.classList.add('right'); $('pat').lastChild.textContent=answer; $('pat').lastChild.style.borderStyle='solid'; $('p-status').className='status good'; tell('p-status',cheer()+' You found the pattern!'); award('pattern'); setTimeout(newPattern,1600) } else { b.classList.add('wrong'); $('p-status').className='status oops'; tell('p-status',nudge()+' Say the pattern out loud.') } }) }
+
+// ---------- PAINT ----------
+const PAL=['#ff3b3b','#ff8c1a','#ffd500','#2fc26a','#2f6fe4','#9b5cf6','#ff5fa2','#8b5a2b','#1b1b2f','#ffffff'];
+let cur=PAL[0], painting=false; const PW=12,PH=10;
+$('palette').innerHTML=PAL.map((c,i)=>`<button style="background:${c}" aria-pressed="${i===0}" aria-label="color"></button>`).join('');
+$('palette').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; cur=b.style.background; [...$('palette').children].forEach(x=>x.setAttribute('aria-pressed',x===b)) });
+const pix=$('pix'); pix.innerHTML=Array.from({length:PW*PH},()=>'<div></div>').join('');
+const saved=load('zap-pix',null); if(saved) [...pix.children].forEach((d,i)=>{ if(saved[i]) d.style.background=saved[i] });
+function paintAt(x,y){ const el=document.elementFromPoint(x,y); if(el&&el.parentElement===pix){ el.style.background=cur } }
+pix.addEventListener('pointerdown',e=>{ painting=true; paintAt(e.clientX,e.clientY); award('paint') });
+pix.addEventListener('pointermove',e=>{ if(painting) paintAt(e.clientX,e.clientY) });
+window.addEventListener('pointerup',()=>{ if(painting){ painting=false; store('zap-pix',[...pix.children].map(d=>d.style.background||'')) } });
+$('pix-clear').onclick=()=>{ [...pix.children].forEach(d=>d.style.background=''); store('zap-pix',null) };
+$('pix-hero').onclick=()=>{ const Y='#ffd500',B='#2f6fe4',P='#9b5cf6',S='#ffd9b3',K='#1b1b2f',R='#ff3b3b';
+  const art=[
+   '....YYYY....','...YYYYYY...','...SSSSSS...','...SKSSKS...','...SSSSSS...','.P..BBBB..P.','.PPBBYYBBPP.','..PBBBBBBP..','....BBBB....','....RR.RR...'];
+  [...pix.children].forEach((d,i)=>{ const ch=art[Math.floor(i/PW)][i%PW]; d.style.background={Y,B,P,S,K,R}[ch]||'' }); store('zap-pix',[...pix.children].map(d=>d.style.background||'')); say('Here I am, made of pixels!') };
+
+// ---------- REAL PYTHON (tap to fill blanks, runs in Skulpt) ----------
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const WORDS=['hello','Akib','I am a hero','zap','I love you','pizza','super','🚀','⚡','🦖'];
+const NUMS=[1,2,3,4,5,6,7,8,9,10];
+let pyMode='say', pyWord='hello', pyNum=3, pyEmoji='⭐', tLines=[];
+$('py-modes').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; pyMode=b.dataset.m; [...$('py-modes').children].forEach(x=>{ x.setAttribute('aria-pressed',x===b); x.classList.toggle('yellow',x===b) }); renderPy();
+  say({say:'Tap a word, then press run, and Python says it!',loop:'Pick a number. Python repeats as many times as you say!',turtle:'Tap the buttons to write turtle code. Then run it and watch it draw!'}[pyMode]) });
+function renderPy(){ const c=$('py-code'), ch=$('py-chips'); $('py-tbtns').classList.toggle('hidden',pyMode!=='turtle'); ch.classList.toggle('hidden',pyMode==='turtle'); $('py-turtle').classList.toggle('hidden',pyMode!=='turtle'); $('py-out').classList.toggle('hidden',pyMode==='turtle');
+  if(pyMode==='say'){ c.innerHTML=`<span class="k">print</span>(<span class="s">"<span class="blank">${esc(pyWord)}</span>"</span>)`; ch.innerHTML=WORDS.map(w=>`<button>${esc(w)}</button>`).join(''); [...ch.children].forEach(b=>b.onclick=()=>{ pyWord=b.textContent; say(pyWord); renderPy() }) }
+  else if(pyMode==='loop'){ c.innerHTML=`<span class="k">for</span> i <span class="k">in</span> <span class="n">range</span>(<span class="blank">${pyNum}</span>):\n    <span class="k">print</span>(<span class="s">"<span class="blank">${pyEmoji}</span>"</span>)`;
+    ch.innerHTML=NUMS.map(n=>`<button class="num">${n}</button>`).join('')+['⭐','🍎','🐸','🚗','❤️'].map(e=>`<button>${e}</button>`).join(''); [...ch.children].forEach(b=>b.onclick=()=>{ if(b.classList.contains('num')){ pyNum=+b.textContent; say(String(pyNum)+' times') } else pyEmoji=b.textContent; renderPy() }) }
+  else { c.innerHTML=`<span class="k">import</span> turtle\nt = turtle.<span class="n">Turtle</span>()\n`+tLines.map(l=>esc(l).replace(/^t\.(\w+)/,'t.<span class="n">$1</span>').replace(/"(\w+)"/,'<span class="s">"$1"</span>')).join('\n') } }
+$('py-tbtns').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; if(b.dataset.c==='UNDO') tLines.pop(); else if(tLines.length<30){ tLines.push(b.dataset.c); say(b.textContent.replace(/[^a-z ]/gi,'').trim()) } renderPy() });
+$('py-clear').onclick=()=>{ tLines=[]; $('py-out').textContent=''; $('py-turtle').innerHTML=''; $('py-status').textContent=''; renderPy() };
+function pySource(){ if(pyMode==='say') return `print("${pyWord.replace(/"/g,'')}")`; if(pyMode==='loop') return `for i in range(${pyNum}):\n    print("${pyEmoji}")`; return 'import turtle\nt = turtle.Turtle()\nt.width(6)\nt.speed(6)\n'+tLines.join('\n') }
+$('py-run').onclick=async()=>{ track.run(); const out=$('py-out'), tb=$('py-turtle'); out.textContent=''; tb.innerHTML=''; $('py-status').textContent='';
+  if(!window.Sk){ $('py-status').className='status oops'; tell('py-status','Python is still loading. Try again!'); return }
+  Sk.configure({output:t=>out.append(t),read:x=>{ if(!Sk.builtinFiles||!Sk.builtinFiles.files[x]) throw "File not found: '"+x+"'"; return Sk.builtinFiles.files[x] },__future__:Sk.python3,execLimit:10000});
+  Sk.TurtleGraphics={target:'py-turtle',width:360,height:240};
+  try{ await Sk.misceval.asyncToPromise(()=>Sk.importMainWithBody('<stdin>',false,pySource(),true)); $('py-status').className='status good';
+    if(pyMode==='say'){ tell('py-status','Python said: '+pyWord); award('py-say') } else if(pyMode==='loop'){ tell('py-status',`Python repeated it ${pyNum} times!`); award('py-loop') } else { tell('py-status', tLines.length?'You drew with Python code!':'Tap Walk and Turn first!'); if(tLines.length>=3) award('py-turtle') } }
+  catch(e){ $('py-status').className='status oops'; tell('py-status','Oops, something went wrong. Try again!') } };
+renderPy();
+
+// ---------- WEB PAGE builder ----------
+const W={title:'Akib is a hero',color:'#2f6fe4',pic:'🦸',btn:'POW!'};
+const WT=['Akib is a hero','My robot','I love dinosaurs','Welcome to my page'], WC=['#ff3b3b','#2f6fe4','#2fc26a','#9b5cf6','#ff8c1a','#ff5fa2'], WP=['🦸','🤖','🦖','🚀','🐶','🌈'], WB=['POW!','Boom!','Hello!','Zap!'];
+function pickRow(id,items,key,sw){ $(id).innerHTML=items.map(v=>sw?`<button class="sw" style="background:${v}" aria-pressed="${W[key]===v}" aria-label="color"></button>`:`<button aria-pressed="${W[key]===v}">${v}</button>`).join(''); [...$(id).children].forEach((b,i)=>b.onclick=()=>{ W[key]=items[i]; say(sw?'Color!':items[i]); renderWeb() }) }
+function webSource(){ return `<h1 style="color: ${W.color}">${W.title}</h1>\n<p style="font-size: 90px">${W.pic}</p>\n<button onclick="this.textContent = '${W.pic}${W.pic}${W.pic}'">${W.btn}</button>` }
+function renderWeb(){ pickRow('w-titles',WT,'title'); pickRow('w-colors',WC,'color',true); pickRow('w-pics',WP,'pic'); pickRow('w-btns',WB,'btn');
+  $('w-code').textContent=webSource(); $('w-view').srcdoc=`<!doctype html><meta charset="utf-8"><style>body{font-family:'Nunito',sans-serif;margin:16px;text-align:center}h1{font-size:34px}button{font-size:28px;padding:10px 22px;border-radius:14px;border:3px solid #1b1b2f;background:#ffd500;cursor:pointer}</style>${webSource()}`;
+  $('w-status').textContent='You made a web page! Tap the button on it.'; award('web') }
+renderWeb();
+
+// ---------- AI: teach Zap ----------
+const TOY={shape:['ball','block'],color:['red','blue'],size:['big','small']};
+let aiStarted=false, aiRule=null, aiTrain=[], aiTest=[], aiLabels={};
+function toySVG(t){ const col=t.color==='red'?'#ff3b3b':'#2f6fe4', r=t.size==='big'?28:16; return `<svg viewBox="0 0 70 70">${t.shape==='ball'?`<circle cx="35" cy="35" r="${r}" fill="${col}" stroke="#1b1b2f" stroke-width="3"/><circle cx="${35-r/3}" cy="${35-r/3}" r="${r/5}" fill="#fff"/>`:`<rect x="${35-r}" y="${35-r}" width="${2*r}" height="${2*r}" rx="5" fill="${col}" stroke="#1b1b2f" stroke-width="3"/>`}</svg>` }
+function allToys(){ const o=[]; for(const shape of TOY.shape) for(const color of TOY.color) for(const size of TOY.size) o.push({shape,color,size}); return o }
+function newAI(){ aiStarted=true; const f=pick(Object.keys(TOY)); aiRule={f,v:pick(TOY[f])}; const all=shuffle(allToys()); aiTrain=all.slice(0,4); aiTest=all.slice(4,8); aiLabels={}; $('ai-test-wrap').classList.add('hidden'); $('ai-status').textContent='';
+  tell('ai-say',`Zap only likes ${aiRule.v} toys, but he doesn't know what ${aiRule.v} means! Tap 😍 on the ${aiRule.v} toys and 🙅 on the others. Then teach him.`);
+  $('ai-train').innerHTML=aiTrain.map((t,i)=>`<div class="aicard" data-i="${i}">${toySVG(t)}<div class="lab"><button data-v="1" aria-pressed="false">😍</button><button data-v="0" aria-pressed="false">🙅</button></div></div>`).join('') }
+$('ai-train').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const card=b.closest('.aicard'); const i=+card.dataset.i; aiLabels[i]=+b.dataset.v; card.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b)); card.classList.toggle('yes',aiLabels[i]===1); card.classList.toggle('no',aiLabels[i]===0); say(aiLabels[i]?'Zap likes it!':'No thanks!') });
+$('ai-new').onclick=newAI;
+$('ai-teach').onclick=()=>{ const idx=Object.keys(aiLabels).map(Number); if(idx.length<2){ $('ai-status').className='status oops'; tell('ai-status','Tap 😍 or 🙅 on more toys first!'); return } track.run();
+  const scores=[]; for(const f in TOY) for(const v of TOY[f]) scores.push({f,v,agree:idx.filter(i=>((aiTrain[i][f]===v)?1:0)===aiLabels[i]).length});
+  const best=Math.max(...scores.map(s=>s.agree)); const learned=pick(scores.filter(s=>s.agree===best)); $('ai-status').className='status good'; tell('ai-status',`Zap thinks: "I like ${learned.v} toys!"`);
+  $('ai-test-wrap').classList.remove('hidden'); let right=0; $('ai-test').innerHTML=aiTest.map(t=>{ const g=t[learned.f]===learned.v, truth=t[aiRule.f]===aiRule.v; if(g===truth) right++; return `<div class="aicard">${toySVG(t)}<span class="g ${g===truth?'ok':'bad'}">${g?'😍':'🙅'} ${g===truth?'✓':'✗'}</span></div>` }).join('');
+  const r=$('ai-result'); if(right===aiTest.length){ r.className='status good'; setTimeout(()=>tell('ai-result','Zap got them ALL right! You are a great teacher!'),1500); award('ai') } else { r.className='status oops'; setTimeout(()=>tell('ai-result',`Zap got ${right} right. He needs more examples! Tap more toys and teach again.`),1500) } };
+</script>
+
+</body></html>
