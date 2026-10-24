@@ -284,7 +284,7 @@ iframe.preview{width:100%;min-height:260px;border:3px solid var(--line);border-r
     <span class="pow">1+1!</span>
     <h2>Math Mission</h2>
     <div class="say"><span class="face"></span><div class="b"><span id="math-say"></span><button class="speak" data-say="math-say">🔊</button></div></div>
-    <div class="row" id="math-modes"><button class="big yellow" data-m="add" aria-pressed="true">➕ Adding</button><button class="big" data-m="sub" aria-pressed="false">➖ Taking away</button><button class="big" data-m="more" aria-pressed="false">⚖️ More or less</button><button class="big" data-m="ten" aria-pressed="false">🔟 Make ten</button></div>
+    <div class="row" id="math-modes"><button class="big yellow" data-m="add" aria-pressed="true">➕ Adding</button><button class="big" data-m="sub" aria-pressed="false">➖ Taking away</button><button class="big" data-m="more" aria-pressed="false">⚖️ More or less</button><button class="big" data-m="ten" aria-pressed="false">🔟 Make ten</button><button class="big" data-m="count" aria-pressed="false">🔢 How many?</button><button class="big" data-m="double" aria-pressed="false">✌️ Doubles</button></div>
     <div class="wordpic" id="math-pic"></div>
     <div class="bignum" id="math-q"></div>
     <div class="numpad" id="math-pad"></div>
@@ -309,7 +309,9 @@ iframe.preview{width:100%;min-height:260px;border:3px solid var(--line);border-r
     <h2>Our World</h2>
     <div class="say"><span class="face"></span><div class="b"><span id="geo-say">This is our planet Earth! The big land pieces are called continents. Tap one to hear its name.</span><button class="speak" data-say="geo-say">🔊</button></div></div>
     <div class="map" id="map"></div>
-    <div class="row"><button class="big red" id="geo-find">🎯 Find the continent!</button><button class="big blue" id="geo-animal">🐾 Where does it live?</button></div>
+    <div class="row"><button class="big red" id="geo-find">🎯 Find the continent!</button><button class="big blue" id="geo-animal">🐾 Where does it live?</button><button class="big green" id="geo-quiz">🧭 World quiz</button></div>
+    <div class="wordpic hidden" id="geo-pic"></div>
+    <div class="choices hidden" id="geo-choices"></div>
     <p class="status" id="geo-status"></p>
     <p class="fact" id="geo-fact"></p>
   </section>
@@ -384,6 +386,9 @@ function store(k,v){ try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} }
 function load(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v }catch(e){ return d } }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a }
 const pick=a=>a[Math.floor(Math.random()*a.length)];
+// Deal from a shuffled deck so every question comes up once before any repeats (and never the same one twice in a row).
+const decks=new Map();
+function drawFrom(bank){ let d=decks.get(bank); if(!d||!d.cards.length){ const cards=shuffle([...bank]); if(d&&cards.length>1&&cards[cards.length-1]===d.last) cards.unshift(cards.pop()); d={cards,last:d?d.last:null}; decks.set(bank,d) } d.last=d.cards.pop(); return d.last }
 
 // ---------- Super Akib: a chubby-cheeked little hero drawn with soft 3D shading (gradients + highlights) ----------
 const HERO_DEFS=`<defs>
@@ -431,9 +436,15 @@ let sayTimer=null, lastSaid='', lastAt=0;
 function say(text,rate){ if(muted||!('speechSynthesis' in window)||!text) return;
   const now=Date.now(); if(text===lastSaid&&now-lastAt<2500) return; lastSaid=text; lastAt=now;
   clearTimeout(sayTimer); try{ speechSynthesis.cancel() }catch(e){}
-  sayTimer=setTimeout(()=>{ try{ const u=new SpeechSynthesisUtterance(text); u.rate=rate||1.0; u.pitch=1.1; if(voice) u.voice=voice; speechSynthesis.speak(u) }catch(e){} },150) }
+  sayTimer=setTimeout(()=>{ try{ const u=new SpeechSynthesisUtterance(text); u.rate=(rate||1.0)*0.85; u.pitch=1.1; if(voice) u.voice=voice; speechSynthesis.speak(u) }catch(e){} },150) }
 document.querySelectorAll('.speak').forEach(b=>b.onclick=()=>say($(b.dataset.say).textContent));
+// Resting the mouse on a speech bubble, a question, a status line or a fact reads it out loud, so nothing needs to be read.
+let hoverEl=null;
+document.addEventListener('pointerover',e=>{ if(e.pointerType!=='mouse') return; const el=e.target.closest('.say .b, .status, .fact, #math-q, .wordpic, .letterbig, .bignum'); if(!el||el===hoverEl) return; hoverEl=el; const t=clean(el.textContent); if(t) say(t) });
+document.addEventListener('pointerout',e=>{ if(hoverEl&&!hoverEl.contains(e.relatedTarget)) hoverEl=null });
 function tell(id,text){ const el=$(id); el.textContent=text; if(el.classList.contains('oops')) sfx.boing(); else if(el.classList.contains('good')&&!/won|star|right|did it|complete|great|made/i.test(text)) sfx.ding(); say(text) }
+// Run fn once the hero has finished talking (at least minMs from now, at most 20s), so a new question never cuts off the answer.
+function whenQuiet(fn,minMs){ const t0=Date.now(); const poll=()=>{ const busy=('speechSynthesis' in window)&&!muted&&(speechSynthesis.speaking||speechSynthesis.pending); if((Date.now()-t0>=minMs&&!busy)||Date.now()-t0>20000) setTimeout(fn,800); else setTimeout(poll,200) }; setTimeout(poll,Math.max(300,minMs)) }
 const cheer=()=>pick(['Whoa, super job!','You did it, hero!','Amazing! High five!','Fantastic!','Hero power activated!','Wow wow wow!','That was awesome!','Mission complete!']);
 const nudge=()=>pick(['Almost! Try again, hero.','Not that one. You can do it!','Hmm, look again!','Heroes never give up!']);
 
@@ -535,7 +546,7 @@ const LEVELS=[
  {start:[0,2],goal:[2,0],rocks:[]},
  {start:[0,1],goal:[3,1],rocks:[[2,1]]},
  {start:[3,2],goal:[0,0],rocks:[[1,2],[2,0]]},
- {start:[0,0],goal:[3,2],rocks:[[1,0],[2,2],[2,1]]},
+ {start:[0,0],goal:[3,2],rocks:[[1,0],[1,2],[2,2]]},
 ];
 let lv=load('zap-level',0), L=null, prog=[], pos=[0,0], running=false;
 const ARROW={L:'⬅️',U:'⬆️',D:'⬇️',R:'➡️'}, WORD={L:'left',U:'up',D:'down',R:'right'};
@@ -578,7 +589,7 @@ $('alpha').addEventListener('click',e=>{ const b=e.target.closest('button'); if(
 function showLetter(l){ $('letterbig').innerHTML=`<span>${l}</span><span class="e">${LET[l][0]}</span><span class="w">${LET[l][1]}</span>` }
 $('l-game').onclick=()=>{ const target=pick(Object.keys(LET)); const opts=shuffle([target,...shuffle(Object.keys(LET).filter(x=>x!==target)).slice(0,3)]); $('l-choices').classList.remove('hidden'); $('l-status').textContent='';
   $('l-choices').innerHTML=opts.map(l=>`<button>${l}</button>`).join(''); tell('l-say',`Find the letter ${target}! ${target} is for ${LET[target][1]}.`);
-  [...$('l-choices').children].forEach(b=>b.onclick=()=>{ track.run(); if(b.textContent===target){ b.classList.add('right'); $('l-status').className='status good'; tell('l-status',cheer()); showLetter(target); award('letters'); setTimeout(()=>$('l-game').click(),1500) } else { b.classList.add('wrong'); $('l-status').className='status oops'; tell('l-status',nudge()) } }) };
+  [...$('l-choices').children].forEach(b=>b.onclick=()=>{ track.run(); if(b.textContent===target){ b.classList.add('right'); $('l-status').className='status good'; tell('l-status',cheer()); showLetter(target); award('letters'); whenQuiet(()=>$('l-game').click(),1500) } else { b.classList.add('wrong'); $('l-status').className='status oops'; tell('l-status',nudge()) } }) };
 
 
 // ---------- PHONICS (US Montessori style: sounds only, never letter names; pink consonants, blue vowels;
@@ -615,7 +626,7 @@ function newSpell(){ [spWord,spPic]=pick(CVC); spDone=[]; $('sp-pic').textConten
 function renderSpell(){ $('sp-answer').innerHTML=spDone.map(l=>`<button class="${VOW.includes(l)?'vowel':'cons'}">${l}</button>`).join('')||'<span style="color:var(--muted);font-size:1.2rem">tap the letters in order</span>';
   const pool=shuffle([...spWord]); const used=[...spDone]; $('sp-pool').innerHTML=pool.filter(l=>{ const i=used.indexOf(l); if(i>-1){ used.splice(i,1); return false } return true }).map(l=>`<button class="${VOW.includes(l)?'vowel':'cons'}">${l}</button>`).join('') }
 $('sp-pool').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const l=b.textContent; if(l!==spWord[spDone.length]){ sfx.boing(); say(`${SOUND[l]}? The next sound is ${SOUND[spWord[spDone.length]]}.`); return } spDone.push(l); say(SOUND[l]); renderSpell();
-  if(spDone.length===spWord.length){ track.run(); $('sp-status').className='status good'; $('sp-status').textContent='You spelled '+spWord+'!'; setTimeout(()=>say(`${spWord}! You spelled ${spWord}!`),500); award('spell'); setTimeout(newSpell,3500) } });
+  if(spDone.length===spWord.length){ track.run(); $('sp-status').className='status good'; $('sp-status').textContent='You spelled '+spWord+'!'; setTimeout(()=>say(`${spWord}! You spelled ${spWord}!`),500); award('spell'); whenQuiet(newSpell,2500) } });
 $('sp-undo').onclick=()=>{ spDone.pop(); renderSpell() };
 $('sp-hint').onclick=()=>say(`${spWord}. ${[...spWord].map(l=>SOUND[l]).join(', ')}.`);
 $('sp-next').onclick=newSpell;
@@ -625,7 +636,7 @@ function newSentence(){ const [sent,pic]=pick(SENT); seWords=sent.split(' '); se
 function renderSentence(){ $('se-answer').innerHTML=seDone.map(w=>`<button>${w}</button>`).join('')||'<span style="color:var(--muted);font-size:1.2rem">put the words in order</span>';
   const used=[...seDone]; $('se-pool').innerHTML=shuffle([...seWords]).filter(w=>{ const i=used.indexOf(w); if(i>-1){ used.splice(i,1); return false } return true }).map(w=>`<button>${w}</button>`).join('') }
 $('se-pool').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; const w=b.textContent; if(w!==seWords[seDone.length]){ sfx.boing(); say(`${w.replace('.','')}. Hmm, which word comes next? ${seWords.slice(0,seDone.length+1).join(' ')}`); return } seDone.push(w); say(w.replace('.','')); renderSentence();
-  if(seDone.length===seWords.length){ track.run(); $('se-status').className='status good'; $('se-status').textContent='You built a sentence!'; setTimeout(()=>say(seWords.join(' ')+' You read a whole sentence!'),600); award('sentence'); setTimeout(newSentence,4000) } });
+  if(seDone.length===seWords.length){ track.run(); $('se-status').className='status good'; $('se-status').textContent='You built a sentence!'; setTimeout(()=>say(seWords.join(' ')+' You read a whole sentence!'),600); award('sentence'); whenQuiet(newSentence,2500) } });
 $('se-undo').onclick=()=>{ seDone.pop(); renderSentence() };
 $('se-read').onclick=()=>say(seWords.join(' '));
 $('se-next').onclick=newSentence;
@@ -638,7 +649,7 @@ function newShape(){ sStarted=true; const shape=pick(Object.keys(SHAPES)), color
   const opts=[{shape,color}]; while(opts.length<4){ const o={shape:pick(Object.keys(SHAPES)),color:pick(Object.keys(COLORS))}; if(!opts.some(x=>x.shape===o.shape&&x.color===o.color)&&!(askColor?o.color===color:o.shape===shape)) opts.push(o) }
   shuffle(opts); $('s-status').textContent=''; $('s-choices').innerHTML=opts.map(o=>`<button><svg viewBox="0 0 84 84">${SHAPES[o.shape](COLORS[o.color])}</svg></button>`).join('');
   tell('s-say', askColor?`Tap the ${color} one!`:`Tap the ${shape}!`);
-  [...$('s-choices').children].forEach((b,i)=>b.onclick=()=>{ track.run(); const o=opts[i]; const ok=askColor?o.color===color:o.shape===shape; if(ok){ b.classList.add('right'); $('s-status').className='status good'; tell('s-status',cheer()+` A ${o.color} ${o.shape}!`); award('shapes'); setTimeout(newShape,1600) } else { b.classList.add('wrong'); $('s-status').className='status oops'; tell('s-status',`That is a ${o.color} ${o.shape}. ${nudge()}`) } }) }
+  [...$('s-choices').children].forEach((b,i)=>b.onclick=()=>{ track.run(); const o=opts[i]; const ok=askColor?o.color===color:o.shape===shape; if(ok){ b.classList.add('right'); $('s-status').className='status good'; tell('s-status',cheer()+` A ${o.color} ${o.shape}!`); award('shapes'); whenQuiet(newShape,1600) } else { b.classList.add('wrong'); $('s-status').className='status oops'; tell('s-status',`That is a ${o.color} ${o.shape}. ${nudge()}`) } }) }
 
 // ---------- PATTERNS ----------
 const PSETS=[['🍎','🍌'],['🔴','🔵'],['⭐','🌙'],['🐱','🐶'],['⚡','💥'],['🟩','🟨','🟦'],['🚗','🚌','🚲']];
@@ -647,7 +658,7 @@ function newPattern(){ pStarted=true; const set=pick(PSETS); const kind=set.leng
   const answer=seq[6]; const shown=seq.slice(0,6); const opts=shuffle([...new Set([answer,...set,...pick(PSETS)])].slice(0,4)); if(!opts.includes(answer)) opts[0]=answer;
   $('pat').innerHTML=shown.map(x=>`<span>${x}</span>`).join('')+'<span class="q">?</span>'; $('p-status').textContent='';
   $('p-choices').innerHTML=opts.map(x=>`<button>${x}</button>`).join(''); say('What comes next?');
-  [...$('p-choices').children].forEach(b=>b.onclick=()=>{ track.run(); if(b.textContent===answer){ b.classList.add('right'); $('pat').lastChild.textContent=answer; $('pat').lastChild.style.borderStyle='solid'; $('p-status').className='status good'; tell('p-status',cheer()+' You found the pattern!'); award('pattern'); setTimeout(newPattern,1600) } else { b.classList.add('wrong'); $('p-status').className='status oops'; tell('p-status',nudge()+' Say the pattern out loud.') } }) }
+  [...$('p-choices').children].forEach(b=>b.onclick=()=>{ track.run(); if(b.textContent===answer){ b.classList.add('right'); $('pat').lastChild.textContent=answer; $('pat').lastChild.style.borderStyle='solid'; $('p-status').className='status good'; tell('p-status',cheer()+' You found the pattern!'); award('pattern'); whenQuiet(newPattern,1600) } else { b.classList.add('wrong'); $('p-status').className='status oops'; tell('p-status',nudge()+' Say the pattern out loud.') } }) }
 
 // ---------- PAINT ----------
 const PAL=['#ff3b3b','#ff8c1a','#ffd500','#2fc26a','#2f6fe4','#9b5cf6','#ff5fa2','#8b5a2b','#1b1b2f','#ffffff'];
@@ -672,7 +683,13 @@ function quiz(prefix,Q,{onRight}={}){ const pic=$(prefix+'-pic'), ch=$(prefix+'-
   pic.textContent=Q.pic||''; st.textContent=''; if(fact) fact.textContent='';
   const opts=shuffle(Q.o.map((text,i)=>({text,right:i===0}))); ch.innerHTML=opts.map(o=>`<button class="${o.text.replace(/\p{Extended_Pictographic}/gu,'').trim().length>3?'txt':''}">${o.text}</button>`).join('');
   tell(prefix+'-say',Q.q);
-  [...ch.children].forEach((b,i)=>b.onclick=()=>{ track.run(); if(opts[i].right){ b.classList.add('right'); st.className='status good'; tell(prefix+'-status',cheer()); if(fact&&Q.w){ fact.textContent=Q.w; setTimeout(()=>say(Q.w),1200) } onRight&&onRight(); } else { b.classList.add('wrong'); st.className='status oops'; tell(prefix+'-status',nudge()) } }) }
+  // Every answer reads itself out loud: when the mouse rests on it (a 5-year-old can't read the words yet),
+  // and on a tap it is spoken first, then the verdict follows a beat later.
+  [...ch.children].forEach((b,i)=>{ const label=clean(opts[i].text);
+    b.onpointerenter=e=>{ if(e.pointerType==='mouse'&&label) say(label) };
+    b.onfocus=()=>{ if(label) say(label) };
+    b.onclick=()=>{ track.run(); const heard=label&&lastSaid===label&&Date.now()-lastAt<4000; if(label&&!heard) say(label);
+      setTimeout(()=>{ if(opts[i].right){ b.classList.add('right'); st.className='status good'; tell(prefix+'-status',cheer()); if(fact&&Q.w){ fact.textContent=Q.w; setTimeout(()=>say(Q.w),1200) } onRight&&onRight(); } else { b.classList.add('wrong'); st.className='status oops'; tell(prefix+'-status',nudge()) } }, heard||!label?0:1100) } }) }
 const clean=t=>String(t).replace(/[^\p{L}\p{N} .,'!?-]/gu,'').trim();
 
 // ---------- MATH ----------
@@ -682,11 +699,13 @@ function numpad(id,answer,ok){ const pad=$(id); pad.innerHTML=''; for(let n=0;n<
 function newMath(){ const E=pick(['🍎','⭐','🐸','🚗','🎈','🍪']); $('math-status').textContent=''; $('math-choices').classList.add('hidden'); $('math-pad').classList.remove('hidden');
   if(mathMode==='add'){ const a=1+Math.floor(Math.random()*5), b=1+Math.floor(Math.random()*5); mathAns=a+b; $('math-pic').innerHTML=`${E.repeat(a)} <b>+</b> ${E.repeat(b)}`; $('math-q').textContent=`${a} + ${b} = ?`; tell('math-say',`${a} plus ${b}. Count all the pictures. How many altogether?`) }
   else if(mathMode==='sub'){ const a=2+Math.floor(Math.random()*8), b=1+Math.floor(Math.random()*(a-1)); mathAns=a-b; $('math-pic').innerHTML=`${E.repeat(a-b)}<span style="opacity:.25">${E.repeat(b)}</span>`; $('math-q').textContent=`${a} − ${b} = ?`; tell('math-say',`${a} take away ${b}. ${b} went away. How many are left?`) }
+  else if(mathMode==='count'){ const a=1+Math.floor(Math.random()*10); mathAns=a; $('math-pic').innerHTML=E.repeat(a); $('math-q').textContent='How many?'; tell('math-say','Count the pictures. Touch each one as you count. How many are there?') }
+  else if(mathMode==='double'){ const a=1+Math.floor(Math.random()*5); mathAns=a+a; $('math-pic').innerHTML=`${E.repeat(a)} <b>+</b> ${E.repeat(a)}`; $('math-q').textContent=`${a} + ${a} = ?`; tell('math-say',`Double ${a}! ${a} and ${a} more. How many altogether?`) }
   else if(mathMode==='ten'){ const a=Math.floor(Math.random()*10); mathAns=10-a; $('math-pic').innerHTML=`${'🟦'.repeat(a)}${'⬜'.repeat(10-a)}`; $('math-q').textContent=`${a} + ? = 10`; tell('math-say',`There are ${a} blue blocks. How many more to make ten?`) }
   else { $('math-pad').classList.add('hidden'); $('math-choices').classList.remove('hidden'); const a=1+Math.floor(Math.random()*9); let b; do{ b=1+Math.floor(Math.random()*9) }while(b===a); const more=Math.random()<0.5; $('math-pic').textContent=''; $('math-q').textContent=more?'Which is MORE?':'Which is LESS?';
     $('math-choices').innerHTML=[a,b].map(n=>`<button><span style="font-size:1.4rem">${E.repeat(n)}</span></button>`).join(''); tell('math-say',more?'Which side has more?':'Which side has less?');
-    [...$('math-choices').children].forEach((btn,i)=>btn.onclick=()=>{ track.run(); const n=[a,b][i]; const ok=more?n===Math.max(a,b):n===Math.min(a,b); if(ok){ btn.classList.add('right'); $('math-status').className='status good'; tell('math-status',cheer()+` ${n} is ${more?'more':'less'}.`); award('math-'+mathMode); setTimeout(newMath,1800) } else { btn.classList.add('wrong'); $('math-status').className='status oops'; tell('math-status',nudge()+' Count each side.') } }); return }
-  numpad('math-pad',mathAns,()=>{ $('math-status').className='status good'; tell('math-status',cheer()+` ${$('math-q').textContent.replace('?',mathAns)}`); award('math-'+mathMode); setTimeout(newMath,2000) }) }
+    [...$('math-choices').children].forEach((btn,i)=>btn.onclick=()=>{ track.run(); const n=[a,b][i]; const ok=more?n===Math.max(a,b):n===Math.min(a,b); if(ok){ btn.classList.add('right'); $('math-status').className='status good'; tell('math-status',cheer()+` ${n} is ${more?'more':'less'}.`); award('math-'+mathMode); whenQuiet(newMath,1800) } else { btn.classList.add('wrong'); $('math-status').className='status oops'; tell('math-status',nudge()+' Count each side.') } }); return }
+  numpad('math-pad',mathAns,()=>{ $('math-status').className='status good'; tell('math-status',cheer()+` ${$('math-q').textContent.replace('?',mathAns)}`); award('math-'+mathMode); whenQuiet(newMath,2000) }) }
 
 // ---------- SCIENCE ----------
 const SCI=[
@@ -704,8 +723,24 @@ const SCI=[
  {q:'What is at the center of our bodies, pumping all day?',pic:'❤️',o:['the heart','the nose','the knee'],w:'Your heart beats about 100 times a minute to push blood everywhere.'},
  {q:'What do bees make?',pic:'🐝',o:['🍯 honey','🧀 cheese','🍞 bread'],w:'Bees collect sweet juice from flowers and turn it into honey.'},
  {q:'Which one is a planet?',pic:'🔭',o:['🪐 Saturn','🌙 the Moon','⭐ a star'],w:'Saturn is a planet with beautiful rings. We live on a planet too: Earth!'},
+ {q:'What do fish use to breathe under water?',pic:'🐟',o:['gills','a nose','a snorkel'],w:'Gills pull air out of the water. That is why fish can stay under all day.'},
+ {q:'Which one is the biggest?',pic:'📏',o:['🐘 elephant','🐈 cat','🐜 ant'],w:'An elephant is the biggest animal that walks on land.'},
+ {q:'What do we call frozen rain that falls as soft white flakes?',pic:'❄️',o:['snow','sand','sugar'],w:'Every snowflake has six sides and no two are exactly the same.'},
+ {q:'What gives us light in the daytime?',pic:'☀️',o:['the sun','the moon','a lamp'],w:'The sun is so far away that its light takes eight minutes to reach us.'},
+ {q:'Which one is a liquid?',pic:'🥛',o:['💧 water','🪨 rock','🧱 brick'],w:'Liquids flow and take the shape of their cup. Solids keep their shape.'},
+ {q:'How many legs does a spider have?',pic:'🕷️',o:['8','4','100'],w:'Insects have six legs. Spiders have eight, so a spider is not an insect!'},
+ {q:'What do seeds grow into?',pic:'🌰',o:['plants','rocks','clouds'],w:'Inside every tiny seed is a baby plant waiting for water and sun.'},
+ {q:'Which one melts in the sun?',pic:'🍦',o:['🍦 ice cream','🪨 a rock','🥄 a spoon'],w:'Heat turns solid ice cream into a drippy liquid. Eat fast!'},
+ {q:'What is the Moon?',pic:'🌙',o:['a big rock going around Earth','a cheese','a kind of star'],w:'The Moon has no light of its own. It shines because sunlight bounces off it.'},
+ {q:'Which part of a plant drinks water from the ground?',pic:'🌱',o:['the roots','the flower','the leaves'],w:'Roots hide under the soil and sip water up to the whole plant.'},
+ {q:'What sound does thunder come with?',pic:'⛈️',o:['⚡ lightning','🌈 a rainbow','🌙 the moon'],w:'Lightning is a giant spark. Thunder is the loud noise it makes.'},
+ {q:'Which animal has feathers?',pic:'🪶',o:['🦉 owl','🐍 snake','🐸 frog'],w:'Only birds have feathers. They keep birds warm and help them fly.'},
+ {q:'What do you use to see tiny, tiny things?',pic:'🔬',o:['a microscope','a hammer','a spoon'],w:'A microscope makes small things look big. Your skin is full of tiny cells!'},
+ {q:'What happens to a balloon when you let the air out?',pic:'🎈',o:['it gets small','it gets bigger','it turns blue'],w:'Air was pushing the balloon out. Let the air go and it shrinks.'},
+ {q:'Which one helps you stay healthy?',pic:'🥦',o:['🥕 vegetables','🍭 lots of candy','😴 never sleeping'],w:'Vegetables, water, sleep and running around keep your body strong.'},
+ {q:'How many bones does your body have?',pic:'🦴',o:['more than 200','5','2'],w:'Grown-ups have 206 bones. Kids have even more, because some join together as you grow.'},
 ];
-function newSci(){ quiz('sci',pick(SCI),{onRight:()=>{ award('sci'); setTimeout(newSci,4200) }}) }
+function newSci(){ quiz('sci',drawFrom(SCI),{onRight:()=>{ award('sci'); whenQuiet(newSci,3000) }}) }
 
 // ---------- GEOGRAPHY: a simple world map ----------
 // Real continent outlines (Natural Earth 110m data, merged by continent, Natural Earth projection)
@@ -721,10 +756,37 @@ const CONT=[
 $('map').innerHTML=`<svg viewBox="0 0 540 300">${CONT.map((c,i)=>`<path data-i="${i}" d="${c.d}" fill="${c.c}"/>`).join('')}${CONT.map(c=>`<text x="${c.t[0]}" y="${c.t[1]}" text-anchor="middle">${c.n}</text>`).join('')}<circle cx="403" cy="106" r="4" fill="#006a4e" stroke="#fff" stroke-width="1.5"/><text x="403" y="120" text-anchor="middle" style="font-size:9px">Bangladesh</text></svg>`;
 let geoGame=null;
 $('map').addEventListener('click',e=>{ const p=e.target.closest('path'); if(!p) return; const c=CONT[+p.dataset.i]; document.querySelectorAll('.map path').forEach(x=>x.classList.remove('hit')); p.classList.add('hit');
-  if(geoGame){ track.run(); if(c.n===geoGame.target.n){ $('geo-status').className='status good'; tell('geo-status',cheer()+' '+c.n+'!'); $('geo-fact').textContent=c.f; setTimeout(()=>say(c.f),1500); award('geo-'+geoGame.kind); const k=geoGame.kind; geoGame=null; setTimeout(()=>k==='find'?$('geo-find').click():$('geo-animal').click(),5000) } else { $('geo-status').className='status oops'; tell('geo-status',`That is ${c.n}. ${nudge()}`) } }
+  if(geoGame){ track.run(); if(c.n===geoGame.target.n){ $('geo-status').className='status good'; tell('geo-status',cheer()+' '+c.n+'!'); $('geo-fact').textContent=c.f; setTimeout(()=>say(c.f),1500); award('geo-'+geoGame.kind); const k=geoGame.kind; geoGame=null; whenQuiet(()=>k==='find'?$('geo-find').click():$('geo-animal').click(),3000) } else { $('geo-status').className='status oops'; tell('geo-status',`That is ${c.n}. ${nudge()}`) } }
   else { $('geo-fact').textContent=c.f; say(`${c.n}. ${c.f}`) } });
-$('geo-find').onclick=()=>{ geoGame={kind:'find',target:pick(CONT)}; $('geo-status').textContent=''; $('geo-fact').textContent=''; tell('geo-say',`Find ${geoGame.target.n} on the map!`) };
-$('geo-animal').onclick=()=>{ geoGame={kind:'animal',target:pick(CONT)}; $('geo-status').textContent=''; $('geo-fact').textContent=''; tell('geo-say',`${geoGame.target.a[0]} Where does the ${geoGame.target.a[1]} live? Tap the continent!`) };
+
+// ---------- WORLD QUIZ (oceans, countries, flags, weather) ----------
+const GEO=[
+ {q:'What covers most of planet Earth?',pic:'🌍',o:['🌊 water','🏜️ sand','🌲 trees'],w:'More than half of Earth is ocean. That is why it looks blue from space.'},
+ {q:'What is the biggest ocean?',pic:'🌊',o:['the Pacific','the bathtub','the Atlantic'],w:'The Pacific Ocean is so big that all the land on Earth could fit inside it.'},
+ {q:'Which is the biggest continent?',pic:'🗺️',o:['Asia','Europe','Australia'],w:'Asia is home to more than half of all the people in the world.'},
+ {q:'Which continent is the coldest?',pic:'🧊',o:['Antarctica','Africa','Asia'],w:'Antarctica is at the very bottom of the world, covered in thick ice.'},
+ {q:'Which country has pyramids and the Nile river?',pic:'🇪🇬',o:['Egypt','Japan','Canada'],w:'The pyramids in Egypt are more than four thousand years old.'},
+ {q:'What is the flag with a red circle on green?',pic:'🇧🇩',o:['Bangladesh','France','Brazil'],w:'The green is for the land and the red circle is the rising sun.'},
+ {q:'What is the flag with the stars and stripes?',pic:'🇺🇸',o:['the United States','China','India'],w:'The fifty stars stand for the fifty states.'},
+ {q:'What is the flag with a red maple leaf?',pic:'🇨🇦',o:['Canada','Mexico','Italy'],w:'Canada is very big and very cold in the winter, with lots of maple trees.'},
+ {q:'Which animal lives in Antarctica?',pic:'🐧',o:['penguin','camel','monkey'],w:'Penguins cannot fly, but they are amazing swimmers.'},
+ {q:'What is a desert?',pic:'🏜️',o:['a very dry place with little rain','a sweet food','a big lake'],w:'The Sahara in Africa is the biggest hot desert. Camels love it there.'},
+ {q:'What is the tallest mountain in the world?',pic:'🏔️',o:['Mount Everest','a hill','the Eiffel Tower'],w:'Everest is in Asia and so tall that climbers need extra air to breathe.'},
+ {q:'What is the big forest in South America called?',pic:'🌴',o:['the Amazon','the Arctic','the Alps'],w:'The Amazon has more kinds of animals than anywhere else on Earth.'},
+ {q:'Where do you find a kangaroo hopping free?',pic:'🦘',o:['Australia','Europe','North America'],w:'Australia also has koalas, which sleep almost all day.'},
+ {q:'What do we call a map of the whole world shaped like a ball?',pic:'🌐',o:['a globe','a plate','a balloon'],w:'Earth is round like a ball, so a globe shows it best.'},
+ {q:'Which way does the sun come up?',pic:'🌅',o:['East','West','underneath'],w:'The sun rises in the East and sets in the West, every single day.'},
+ {q:'What is the hot, wet weather in a rainforest like?',pic:'🌧️',o:['rainy and steamy','snowy','dry'],w:'Rainforests get rain almost every day. That is why they are so green.'},
+ {q:'Which country is shaped like a boot?',pic:'🇮🇹',o:['Italy','Japan','Egypt'],w:'Italy is in Europe. Pizza and pasta come from there!'},
+ {q:'Where does the Great Wall go for thousands of miles?',pic:'🇨🇳',o:['China','Brazil','Canada'],w:'The Great Wall of China is so long it would take months to walk.'},
+ {q:'What is the frozen top of the world called?',pic:'🐻‍❄️',o:['the Arctic','the beach','the jungle'],w:'Polar bears live in the Arctic. Penguins live at the other end, in Antarctica.'},
+ {q:'Which is a country, not a continent?',pic:'📍',o:['Japan','Africa','Europe'],w:'Continents are huge pieces of land. Countries are the places inside them.'},
+];
+function showGeoQuiz(on){ $('geo-pic').classList.toggle('hidden',!on); $('geo-choices').classList.toggle('hidden',!on); document.querySelectorAll('.map path').forEach(x=>x.classList.remove('hit')) }
+function newGeoQ(){ showGeoQuiz(true); quiz('geo',drawFrom(GEO),{onRight:()=>{ award('geo-quiz'); whenQuiet(newGeoQ,3000) }}) }
+$('geo-quiz').onclick=()=>{ geoGame=null; $('geo-status').textContent=''; $('geo-fact').textContent=''; newGeoQ() };
+$('geo-find').onclick=()=>{ showGeoQuiz(false); geoGame={kind:'find',target:drawFrom(CONT)}; $('geo-status').textContent=''; $('geo-fact').textContent=''; tell('geo-say',`Find ${geoGame.target.n} on the map!`) };
+$('geo-animal').onclick=()=>{ showGeoQuiz(false); geoGame={kind:'animal',target:drawFrom(CONT)}; $('geo-status').textContent=''; $('geo-fact').textContent=''; tell('geo-say',`${geoGame.target.a[0]} Where does the ${geoGame.target.a[1]} live? Tap the continent!`) };
 
 // ---------- IT / computers ----------
 const IT=[
@@ -740,8 +802,23 @@ const IT=[
  {q:'What does the camera do?',pic:'📷',o:['takes pictures','makes sounds','charges the battery'],w:'A camera turns light into pixels so the computer can save the picture.'},
  {q:'What is a bug in a program?',pic:'🐛',o:['a mistake in the code','a real insect inside','a game level'],w:'Every coder makes bugs. Finding and fixing them is called debugging.'},
  {q:'What should you do if a screen says something scary or strange?',pic:'⚠️',o:['tell a grown-up','click everything','hide the tablet'],w:'Grown-ups can check it. You did the right thing by asking.'},
+ {q:'What makes the computer run when it is not plugged in?',pic:'🔋',o:['the battery','the mouse','the keyboard'],w:'A battery stores power. When it runs out, you plug in to charge it.'},
+ {q:'What is a file?',pic:'📄',o:['something saved on the computer, like a picture or a story','a kind of food','a pet'],w:'Pictures, songs and games are all saved as files. Each one has a name.'},
+ {q:'What does the printer do?',pic:'🖨️',o:['puts words and pictures on paper','makes music','cooks lunch'],w:'The printer sprays tiny dots of ink to copy the screen onto paper.'},
+ {q:'Which one is a computer?',pic:'💻',o:['📱 a phone','🪑 a chair','🍎 an apple'],w:'Phones, tablets and laptops are all computers. Even some watches!'},
+ {q:'What is the brain of a computer called?',pic:'🧠',o:['the processor, or CPU','the cable','the screen'],w:'The processor does billions of tiny sums every second.'},
+ {q:'How does the computer remember your game when it is off?',pic:'💾',o:['it saves to memory','it writes it down','it tells a friend'],w:'Saving puts your game on a disk or chip so it is still there tomorrow.'},
+ {q:'What do you call a picture on the screen that you tap to open an app?',pic:'📲',o:['an icon','a bug','a cookie'],w:'Icons are little pictures that stand for apps and files.'},
+ {q:'What is Wi-Fi?',pic:'📶',o:['internet with no wires','a kind of toy','a loud noise'],w:'Wi-Fi sends messages through the air, like invisible radio.'},
+ {q:'What does the speaker do?',pic:'🔊',o:['makes sounds','takes pictures','types letters'],w:'The speaker shakes very fast to push sound into the air.'},
+ {q:'What does the microphone do?',pic:'🎤',o:['listens to your voice','shows pictures','charges the battery'],w:'Super Akib hears you through the microphone!'},
+ {q:'What is code?',pic:'👩‍💻',o:['words that tell a computer what to do','a secret handshake','a kind of cake'],w:'Every game is made of code. You wrote some in Super Moves!'},
+ {q:'What is a loop in code?',pic:'🔁',o:['doing the same thing again and again','a big circle on the floor','a bird'],w:'Instead of saying jump ten times, a loop says: repeat jump, ten times.'},
+ {q:'What is a screenshot?',pic:'📸',o:['a picture of the screen','a broken screen','a loud shout'],w:'A screenshot saves exactly what the screen shows right now.'},
+ {q:'How long should you play on a screen before a break?',pic:'⏰',o:['a little while, then rest your eyes','all day','all night'],w:'Look far away every twenty minutes. Your eyes will thank you!'},
+ {q:'Who can you ask if the computer does something you do not understand?',pic:'🙋',o:['a grown-up','nobody','the mouse'],w:'Asking questions is what heroes and coders do best.'},
 ];
-function newIt(){ quiz('it',pick(IT),{onRight:()=>{ award('it'); setTimeout(newIt,4200) }}) }
+function newIt(){ quiz('it',drawFrom(IT),{onRight:()=>{ award('it'); whenQuiet(newIt,3000) }}) }
 
 // ---------- REAL PYTHON (tap to fill blanks, runs in Skulpt) ----------
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
